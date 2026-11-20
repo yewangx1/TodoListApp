@@ -1,0 +1,97 @@
+﻿<!-- Связывает этот XAML-файл с кодом на C# в файле MainWindow.xaml.cs -->
+<Window x:Class="TodoListApp.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:TodoListApp.ViewModels"
+        Title="Список задач" Height="550" Width="450">
+
+    <!-- Весь интерфейс окна теперь «знает» о свойствах и командах из MainViewModel -->
+    <Window.DataContext>
+        <vm:MainViewModel/>
+    </Window.DataContext>
+
+    <!-- Вертикальное деление всего окна -->
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <!-- Блок добавления задачи (поле ввода + кнопка) -->
+            <RowDefinition Height="Auto"/>
+            <!-- Блок выбора категории (надпись + выпадающий список) -->
+            <RowDefinition Height="Auto"/>
+            <!-- Основная область под список задач -->
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Поле ввода и кнопка добавления -->
+        <Grid Grid.Row="0" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Текст привязан к NewTaskTitle во ViewModel; UpdateSourceTrigger=PropertyChanged обновляет свойство на каждый символ -->
+            <TextBox Text="{Binding NewTaskTitle, UpdateSourceTrigger=PropertyChanged}"
+                     Margin="0,0,5,0" VerticalContentAlignment="Center" FontSize="14" Padding="5"/>
+
+            <!-- Кнопка "+": при нажатии срабатывает AddTaskCommand во ViewModel -->
+            <Button Grid.Column="1" Content="+" FontSize="20" FontWeight="Bold"
+                    Command="{Binding AddTaskCommand}" Width="40" Height="40"/>
+        </Grid>
+
+        <!-- Выбор категории -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+            <TextBlock Text="Категория: " VerticalAlignment="Center" FontSize="14"/>
+            <!-- ItemsSource берет список категорий из ViewModel, SelectedItem записывает выбранную обратно во ViewModel -->
+            <ComboBox ItemsSource="{Binding Categories}"
+                      SelectedItem="{Binding SelectedCategory}"
+                      Width="150" FontSize="14"/>
+        </StackPanel>
+
+        <!-- Список задач: берет коллекцию Tasks из ViewModel -->
+        <ListBox Grid.Row="2" ItemsSource="{Binding Tasks}" HorizontalContentAlignment="Stretch">
+            <!-- DataTemplate описывает внешний вид одной задачи в списке -->
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid Margin="0,5" HorizontalAlignment="Stretch">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/> <!-- Чекбокс -->
+                            <ColumnDefinition Width="*"/> <!-- Название и категория -->
+                            <ColumnDefinition Width="Auto"/> <!-- Кнопка удаления -->
+                            <ColumnDefinition Width="Auto"/> <!-- Запасная колонка -->
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Чекбокс привязан к IsCompleted (выполнена / не выполнена); при клике обновляет состояние задачи -->
+                        <CheckBox IsChecked="{Binding IsCompleted, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                  VerticalAlignment="Center" Margin="0,0,10,0" FontSize="16"/>
+
+                        <!-- Текст задачи и категория -->
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Title}" FontSize="14">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Style.Triggers>
+                                            <!-- Если IsCompleted == True, текст зачеркивается и становится серым -->
+                                            <DataTrigger Binding="{Binding IsCompleted}" Value="True">
+                                                <Setter Property="TextDecorations" Value="Strikethrough"/>
+                                                <Setter Property="Foreground" Value="Gray"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <!-- Отображение категории -->
+                            <TextBlock Text="{Binding Category}" FontSize="10" Foreground="Gray" Margin="0,2,0,0"/>
+                        </StackPanel>
+
+                        <!-- Кнопка удаления: берем команду из DataContext окна и передаем текущую задачу через CommandParameter -->
+                        <Button Grid.Column="2" Content="🗑" FontSize="12"
+                                Width="25" Height="25" Padding="0"
+                                HorizontalAlignment="Right" VerticalAlignment="Center" Margin="5,0"
+                                Command="{Binding DataContext.DeleteTaskCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                CommandParameter="{Binding}"/>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Grid>
+</Window>
