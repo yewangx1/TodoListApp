@@ -1,56 +1,86 @@
-﻿using Xunit;
+﻿using System;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Data.Sqlite;
 using TodoListApp.Models;
 using TodoListApp.Services;
-using System.Linq;
+using Xunit;
 
 namespace TodoListApp.Tests
 {
-    public class TodoServiceTests
+    public class TodoServiceTests : IDisposable
     {
-        // [Fact] в xUnit — это пометка над методом: «это обычный тест, запусти его и проверь, что всё прошло без ошибок
+        private readonly string _dbPath;
+        private readonly TodoService _service;
+
+        // Конструктор выполняется перед КАЖДЫМ тестом, создавая чистую базу данных
+        public TodoServiceTests()
+        {
+            _dbPath = Path.Combine(Path.GetTempPath(), $"test_todo_{Guid.NewGuid()}.db");
+            _service = new TodoService($"Data Source={_dbPath}");
+        }
+
+        // [Fact] в xUnit — это пометка над методом: «это обычный тест, запусти его и проверь, что всё прошло без ошибок»
         [Fact]
         public async Task AddTask_ShouldAddTaskToDatabase()
         {
-            // Используем отдельный файл базы для тестов
-            var service = new TodoService("Data Source=test_todo.db");
+            // Arrange
             var task = new TodoItem { Title = "Тестовая задача", IsCompleted = false, Category = "Тест" };
 
-            await service.AddTaskAsync(task);
-            var tasks = await service.GetTasksAsync();
+            // Act (одно целевое действие)
+            await _service.AddTaskAsync(task);
 
-            Assert.Contains(tasks, t => t.Title == "Тестовая задача");
+            // Assert (проверка в чистой базе)
+            var tasks = await _service.GetTasksAsync();
+            var addedTask = Assert.Single(tasks);
+            Assert.Equal("Тестовая задача", addedTask.Title);
+            Assert.False(addedTask.IsCompleted);
+            Assert.Equal("Тест", addedTask.Category);
         }
 
         [Fact]
         public async Task UpdateTask_ShouldChangeCompletionStatus()
         {
-            var service = new TodoService("Data Source=test_todo.db");
+            // Arrange
             var task = new TodoItem { Title = "Задача для обновления", IsCompleted = false };
-            await service.AddTaskAsync(task);
-
-            var addedTask = (await service.GetTasksAsync()).First(t => t.Title == "Задача для обновления");
-
+            await _service.AddTaskAsync(task);
+            var addedTask = (await _service.GetTasksAsync()).Single();
             addedTask.IsCompleted = true;
-            await service.UpdateTaskAsync(addedTask);
 
-            var updatedTask = (await service.GetTasksAsync()).First(t => t.Id == addedTask.Id);
+            // Act (одно целевое действие)
+            await _service.UpdateTaskAsync(addedTask);
+
+            // Assert
+            var updatedTask = (await _service.GetTasksAsync()).Single();
             Assert.True(updatedTask.IsCompleted);
         }
 
         [Fact]
         public async Task DeleteTask_ShouldRemoveTask()
         {
-            var service = new TodoService("Data Source=test_todo.db");
+            // Arrange
             var task = new TodoItem { Title = "Задача для удаления" };
-            await service.AddTaskAsync(task);
+            await _service.AddTaskAsync(task);
+            var addedTask = (await _service.GetTasksAsync()).Single();
 
-            var addedTask = (await service.GetTasksAsync()).First(t => t.Title == "Задача для удаления");
+            // Act (одно целевое действие)
+            await _service.DeleteTaskAsync(addedTask.Id);
 
-            await service.DeleteTaskAsync(addedTask.Id);
+            // Assert
+            var tasks = await _service.GetTasksAsync();
+            Assert.Empty(tasks);
+        }
 
-            var tasks = await service.GetTasksAsync();
-            Assert.DoesNotContain(tasks, t => t.Id == addedTask.Id);
+        // Выполняется после КАЖДОГО теста и удаляет временный файл БД
+        public void Dispose()
+        {
+            SqliteConnection.ClearAllPools();
+
+            if (File.Exists(_dbPath))
+            {
+                File.Delete(_dbPath);
+            }
         }
     }
 }

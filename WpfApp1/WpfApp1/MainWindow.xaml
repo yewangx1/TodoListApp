@@ -56,7 +56,6 @@
                             <ColumnDefinition Width="Auto"/> <!-- Чекбокс -->
                             <ColumnDefinition Width="*"/> <!-- Название и категория -->
                             <ColumnDefinition Width="Auto"/> <!-- Кнопка удаления -->
-                            <ColumnDefinition Width="Auto"/> <!-- Запасная колонка -->
                         </Grid.ColumnDefinitions>
 
                         <!-- Чекбокс привязан к IsCompleted (выполнена / не выполнена); при клике обновляет состояние задачи -->

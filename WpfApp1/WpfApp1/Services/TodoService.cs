@@ -7,7 +7,7 @@ using TodoListApp.Models;
 namespace TodoListApp.Services
 {// Класс-сервис инкапсулирует всю работу с базой данных (ViewModel не пишет SQL напрямую)
     public class TodoService
-    { // Строка подключения к SQLite
+    {
         private readonly string _connectionString;
         // Конструктор принимает строку подключения и сразу проверяет/создаёт таблицу в БД
         public TodoService(string connectionString)
@@ -15,7 +15,7 @@ namespace TodoListApp.Services
             _connectionString = connectionString;
             InitializeDatabase();
         }
-        // Создаёт таблицу TodoItems, если её ещё нет (идемпотентная инициализация при старте/тестах)
+        // Создаёт таблицу TodoItems, если её ещё нет 
         private void InitializeDatabase()
         {
             using var connection = new SqliteConnection(_connectionString); //создаёт подключение к SQLite и гарантированно закрывает/освобождает его в конце области видимости метода (using).

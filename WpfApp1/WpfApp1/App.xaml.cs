@@ -4,10 +4,10 @@ using System.Windows; //графической библиотекой WPF
 
 namespace WpfApp1
 {
-    /// <summary>
-    /// </summary>
+
     public partial class App : Application //частичный класс
     {
     }
 
 }
+    

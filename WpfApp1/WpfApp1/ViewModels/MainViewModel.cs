@@ -1,81 +1,84 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel; //(для свойств и команд), базовые типы .NET (коллекции, уведомления об изменениях, асинхронность) и внутренние слои проекта: Models и Services
-using CommunityToolkit.Mvvm.Input; // [RelayCommand] — генерация команд ICommand для кнопок/привязок
-using System.Collections.ObjectModel; //коллекция, уведомляющая UI о добавлении/удалении
-using System.ComponentModel; // PropertyChangedEventArgs — событие изменения свойства объекта
-using System.Threading.Tasks; //task для асинх методов
-using TodoListApp.Models; //ToDoItem
+﻿using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using TodoListApp.Models;
 using TodoListApp.Services;
 
 namespace TodoListApp.ViewModels
 {
     public partial class MainViewModel : ObservableObject
     {
-        private readonly TodoService _todoService; //хранит ссылку на сервис работы с базой данных
+        private readonly TodoService _todoService; // Хранит ссылку на сервис работы с БД
 
-        [ObservableProperty]//Атрибут автоматически создаёт публичные свойства (Tasks, NewTaskTitle, SelectedCategory), которые обновляют UI при изменении значения.
-        private ObservableCollection<TodoItem> _tasks = new(); //автоматически оповещает ListBox о добавлении или удалении задач.
-        // Текст из поля ввода новой задачи (двусторонняя привязка с TextBox)
+        [ObservableProperty] // Генерирует свойство Tasks и обновляет UI при изменении коллекции/свойства
+        private ObservableCollection<TodoItem> _tasks = new();
+
         [ObservableProperty]
-        private string _newTaskTitle = string.Empty;
+        [NotifyCanExecuteChangedFor(nameof(AddTaskCommand))] // При изменении текста пересчитывает доступность кнопки '+'
+        private string _newTaskTitle = string.Empty; // Объявляем один раз — без дублей
 
-        // Список доступных категорий для выпадающего списка
         public ObservableCollection<string> Categories { get; } = new() { "Работа", "Личное", "Покупки", "Учеба" };
-        //по умолч
-        [ObservableProperty]
+
+        [ObservableProperty] // Генерирует свойство SelectedCategory
         private string _selectedCategory = "Личное";
 
         public MainViewModel()
         {
-            string connectionString = "Data Source=todo.db"; //подключаемся к  sqlite
-            _todoService = new TodoService(connectionString);//Создаёт экземпляр TodoService
-            LoadTasksCommand.Execute(null);//сразу запускаем чтобы при открытии окна загрузить сохранённые задачи
+            string connectionString = "Data Source=todo.db";
+            _todoService = new TodoService(connectionString);
+            LoadTasksCommand.Execute(null); // Загружаем задачи из БД при создании ViewModel
         }
 
-        [RelayCommand] //Атрибут [RelayCommand] генерирует команду LoadTasksCommand для привязки в интерфейсе.
+        [RelayCommand] // Генерирует LoadTasksCommand
         private async Task LoadTasksAsync()
         {
-            var tasksFromDb = await _todoService.GetTasksAsync(); //получаем задачи из БД, очищаем текущую коллекцию Tasks и заполняет её заново
+            var tasksFromDb = await _todoService.GetTasksAsync();
             Tasks.Clear();
+
             foreach (var task in tasksFromDb)
             {
-                task.PropertyChanged += Task_PropertyChanged; //На каждую задачу вешается обработчик чтобы отсл. изменения
+                task.PropertyChanged += Task_PropertyChanged;
                 Tasks.Add(task);
             }
         }
 
-        [RelayCommand] 
+        private bool CanAddTask() => !string.IsNullOrWhiteSpace(NewTaskTitle); // Активно только если есть текст (не пусто и не пробелы)
+
+        [RelayCommand(CanExecute = nameof(CanAddTask))] // Генерирует AddTaskCommand с проверкой CanAddTask
         private async Task AddTaskAsync()
         {
-            if (string.IsNullOrWhiteSpace(NewTaskTitle)) return;
-
-            var newTask = new TodoItem //собираем объект
+            var newTask = new TodoItem
             {
-                Title = NewTaskTitle,
+                Title = NewTaskTitle.Trim(),
                 IsCompleted = false,
-                Category = SelectedCategory 
+                Category = SelectedCategory
             };
 
             await _todoService.AddTaskAsync(newTask);
 
-            newTask.PropertyChanged += Task_PropertyChanged; //Сохраняет задачу в БД, подписывается на её PropertyChanged
-            Tasks.Insert(0, newTask); //вставляет в начало списка
+            newTask.PropertyChanged += Task_PropertyChanged;
+            Tasks.Insert(0, newTask);
 
-            NewTaskTitle = string.Empty; //очищает поле ввода
+            NewTaskTitle = string.Empty; // Очищаем поле — кнопка '+' снова становится неактивной
         }
 
-        [RelayCommand]
+        [RelayCommand] // Генерирует DeleteTaskCommand
         private async Task DeleteTaskAsync(TodoItem task)
         {
+            if (task is null) return;
+
             await _todoService.DeleteTaskAsync(task.Id);
-            task.PropertyChanged -= Task_PropertyChanged; //убираем связь-оповещение между задачей и обработчиком
+            task.PropertyChanged -= Task_PropertyChanged;
             Tasks.Remove(task);
         }
 
         private async void Task_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == nameof(TodoItem.IsCompleted) && sender is TodoItem task) //когда у конкретной задачи меняется свойство IsCompleted (например, при клике по чекбоксу в списке)
+            if (e.PropertyName == nameof(TodoItem.IsCompleted) && sender is TodoItem task)
             {
-                await _todoService.UpdateTaskAsync(task); //сохраняем новый статус
+                await _todoService.UpdateTaskAsync(task);
             }
         }
     }
